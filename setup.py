@@ -13,6 +13,9 @@ setup(
         "requests>=2.31.0",
         "google-generativeai>=0.3.0",
         "python-dotenv>=1.0.0",
+        "browser-use>=0.1.0",
+        "langchain>=0.1.0",
+        "pytest-asyncio",
     ],
     python_requires=">=3.8",
     classifiers=[

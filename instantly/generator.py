@@ -6,8 +6,8 @@ import base64
 import mimetypes
 import os
 from typing import Dict, Any, List, Optional, Union
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 from .exceptions import ConfigurationError, APIError
 
 class Generator:
@@ -23,7 +23,8 @@ class Generator:
         if not self.api_key:
             raise ConfigurationError("API key must be provided either explicitly or via GEMINI_API_KEY environment variable")
         
-        self.client = genai.Client(api_key=self.api_key)
+        genai.configure(api_key=self.api_key)
+        self.client = genai
 
     def generate(
         self,

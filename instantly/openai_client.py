@@ -59,6 +59,42 @@ class OpenAIClient:
         except Exception as e:
             raise APIError(f"Chat completion failed: {str(e)}")
 
+    def stream_chat_completion(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        **kwargs: Any
+    ):
+        """
+        Create a streaming chat completion using the specified model
+
+        Args:
+            model: The model to use (e.g., "moonshotai/Kimi-K2-Instruct")
+            messages: List of message dictionaries with 'role' and 'content'
+            **kwargs: Additional arguments to pass to the completion API
+
+        Returns:
+            An iterator yielding completion chunks from the model
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=True,  # Enforce streaming
+                **kwargs
+            )
+            for chunk in response:
+                yield {
+                    "choices": [{
+                        "delta": {
+                            "role": "assistant",
+                            "content": chunk.choices[0].delta.content
+                        }
+                    }]
+                }
+        except Exception as e:
+            raise APIError(f"Streaming chat completion failed: {str(e)}")
+
     def embeddings(
         self,
         model: str,
