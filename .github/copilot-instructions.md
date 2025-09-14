@@ -31,6 +31,17 @@ Instantly is a Python library that provides a unified interface for Hugging Face
 - All tools follow standard interface patterns
 - Each tool validates inputs and handles errors uniformly
 - Tools can be composed into larger workflows
+- Browser automation agent with lifecycle hooks and state tracking
+- Example:
+  ```python
+  agent = Agent(task="Browse documentation",
+               llm=OpenAIClient())
+  
+  async def step_hook(agent):
+      print(f"Current URL: {await agent.browser_session.get_current_page_url()}")
+  
+  await agent.run(on_step_start=step_hook)
+  ```
 
 ## Architecture and Components
 
@@ -83,9 +94,17 @@ Key dependencies (from `setup.py`):
 - `requests>=2.31.0`: For HTTP requests
 
 ### Testing
-- Uses pytest framework
-- Current focus on configuration validation
+- Uses pytest framework with pytest-asyncio for async tests
+- Mock clients available for testing: `from instantly.testing import MockLLMClient`
+- Tests automatically skip if required credentials missing
 - Run tests with: `python -m pytest tests/`
+- Example test:
+  ```python
+  @pytest.mark.asyncio
+  async def test_agent():
+      agent = Agent(task="Test task", is_test=True)  # Uses mock client
+      await agent.run(max_steps=1)
+  ```
 
 ## Project Conventions
 
@@ -127,3 +146,29 @@ Key dependencies (from `setup.py`):
    - Implement proper error handling and retries
    - Monitor rate limits for each provider
    - Consider caching for frequent operations
+
+### Streaming Patterns
+All clients support streaming responses with OpenAI-compatible interfaces:
+```python
+stream = client.stream_chat_completion(
+    model="model_name",
+    messages=[{"role": "user", "content": "Hello"}],
+    stream=True
+)
+for chunk in stream:
+    content = chunk["choices"][0]["delta"]["content"]
+    # Process chunk...
+```
+
+### Event-Driven Architecture
+The browser automation agent uses an event bus system:
+```python
+# Event listener registration
+async def on_url_change(event):
+    print(f"URL changed to: {event.url}")
+session.event_bus.listeners["URLChangeEvent"] = [on_url_change]
+
+# State tracking
+agent.state.record_thought("Planning next action...")
+agent.state.record_action({"type": "navigate", "url": url})
+```

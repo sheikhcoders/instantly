@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - instantly-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - instantly-network
+
+  sandbox:
+    build:
+      context: .
+      dockerfile: sandbox/Dockerfile
+    privileged: true  # Required for some tools
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - MAX_MEMORY=2G
+      - CPU_LIMIT=1.0
+    networks:
+      - instantly-network
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - instantly-network
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - instantly-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  instantly-network:
+    driver: bridge

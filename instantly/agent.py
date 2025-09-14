@@ -1,5 +1,5 @@
 """
-Browser automation agent with lifecycle hooks and state management.
+General-purpose AI Agent with tool support and sandbox execution.
 """
 
 import asyncio
@@ -9,6 +9,9 @@ from pathlib import Path
 from .openai_client import OpenAIClient
 from .google_client import GoogleAIClient
 from .exceptions import ConfigurationError
+from .tools import ToolRegistry, BaseTool
+from .sandbox import Sandbox, ResourceLimits
+from .state import AgentState, EventBus, ToolExecutionEvent
 
 class BrowserSession:
     """Manages browser interaction and state."""
@@ -94,27 +97,31 @@ class AgentState:
 
 class Agent:
     """
-    Agent for browser automation with lifecycle hooks and state management.
+    General-purpose AI Agent with tool support and sandbox execution.
     """
     
     def __init__(
         self,
         task: str,
         llm: Optional[Any] = None,
+        tools: Optional[List[BaseTool]] = None,
         context: Optional[Dict[str, Any]] = None,
         settings: Optional[Dict[str, Any]] = None,
         sensitive_data: Optional[Dict[str, Any]] = None,
+        sandbox_config: Optional[Dict[str, Any]] = None,
         is_test: bool = False,
     ):
         """
-        Initialize browser automation agent.
+        Initialize general-purpose AI agent.
 
         Args:
             task: Main task description
             llm: Language model client (OpenAI, Google, or Mock)
+            tools: List of tools to register
             context: Additional context data
             settings: Configuration settings
             sensitive_data: Sensitive data to protect
+            sandbox_config: Sandbox configuration
             is_test: Whether this is a test instance
         """
         self.task = task
@@ -123,9 +130,19 @@ class Agent:
         self.context = context or {}
         self.settings = settings or {}
         self.sensitive_data = sensitive_data or {}
+        self.sandbox_config = sandbox_config or {}
         
-        self.state = AgentState()
+        # Initialize components
+        self.event_bus = EventBus()
+        self.state = AgentState(event_bus=self.event_bus)
+        self.tool_registry = ToolRegistry()
         self.browser_session = BrowserSession()
+        
+        # Register tools
+        if tools:
+            for tool in tools:
+                self.tool_registry.register(tool)
+        
         self._paused = False
         self._on_step_start = None
         self._on_step_end = None
@@ -182,11 +199,37 @@ class Agent:
         # Implementation for state processing and action execution
         pass
 
+    async def execute_tool(self, name: str, *args, **kwargs) -> Any:
+        """Execute a tool in the sandbox."""
+        try:
+            result = await self.tool_registry.execute(
+                name,
+                *args,
+                sandbox_config=self.sandbox_config,
+                **kwargs
+            )
+            
+            await self.event_bus.dispatch(ToolExecutionEvent(
+                tool_name=name,
+                args=args,
+                kwargs=kwargs,
+                result=result
+            ))
+            
+            return result
+        except Exception as e:
+            await self.event_bus.dispatch(ToolExecutionEvent(
+                tool_name=name,
+                args=args,
+                kwargs=kwargs,
+                error=e
+            ))
+            raise
+    
     @property
     def tools(self):
         """Access available tools and actions."""
-        # Implement tool registry
-        return {}
+        return {tool.name: tool for tool in self.tool_registry.list_tools()}
 
     @property
     def history(self):
